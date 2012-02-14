@@ -31,7 +31,7 @@ byte controlword2;
 
 long r1_activity_off_time = 0;
 long r2_activity_off_time = 0;
-long NMEA_delay = 0;
+
 boolean r1_activity = false;
 boolean r2_activity = false;
 
@@ -346,6 +346,9 @@ int		PP_Lat_SN;
 float	PP_Longitude;
 int		PP_Long_WE;
 
+long NMEA_delay = 0;
+int	 SL30_Count = 0;
+
 
 // -------------	GlideSlope and Localizer flags and values	-------------
 // These are timeout values that are set to (???) MSec when valid and count down to zero if
@@ -421,11 +424,48 @@ int crs;
 	    // Calculate one byte checksum
 		appendNMEAchecksum(buf, 1);
 	
-	//if (GSI_Valid & flags) {
-  	
+		// Send to RS-232 Out #2 on FrankenVerter
 	   	Serial3.write((byte *)buf, strlen(buf));
 			Serial.println(buf);
-	//}
+}
+
+//	Output all the other SL30 sentences in case they're required by the Dynon D180
+//
+void outputActiveVOR(void)
+{
+char buf[64];
+	
+ 	// Radial from Active VOR
+	strcpy(buf, "$PMRRV2301654");
+	appendNMEAchecksum(buf, 1);
+   	Serial3.write((byte *)buf, strlen(buf));
+	Serial.println(buf);
+}
+
+//	Output all the other SL30 sentences in case they're required by the Dynon D180
+//
+void outputSL30Misc(void)
+{
+char buf[64];
+	
+ 	// Radial from Standby VOR
+	strcpy(buf, "$PMRRV2401654");
+	appendNMEAchecksum(buf, 1);
+   	Serial3.write((byte *)buf, strlen(buf));
+	Serial.println(buf);
+
+ 	// NAV Receiver Status
+	strcpy(buf, "$PMRRV28E4?PM");
+	appendNMEAchecksum(buf, 1);
+   	Serial3.write((byte *)buf, strlen(buf));
+	Serial.println(buf);
+
+ 	// COMM Tranceiver Status
+	strcpy(buf, "$PMRRV35G4LFR0");
+	appendNMEAchecksum(buf, 1);
+   	Serial3.write((byte *)buf, strlen(buf));
+	Serial.println(buf);
+
 }
 
 //	PMMRRV21 - Label for CDI/GSI (Apollo SL30 IM p71)
@@ -464,12 +504,10 @@ byte i,chksum, flags = 0;
 	
 	    // Calculate one byte checksum
 		appendNMEAchecksum(buf, 1);
-	
-	//if (GSI_Valid & flags) {
-  	
+	  	
+		// Send to RS-232 Out #2 on FrankenVerter
 	   	Serial3.write((byte *)buf, strlen(buf));
 			Serial.println(buf);
-	//}
 }
 
 /*
@@ -545,6 +583,7 @@ struct FPStruct* fp;
     // Calculate and attach a HEX checksum and line termination
 	appendNMEAchecksum(buf, 0);
 
+	// Send to RS-232 Out #2 on FrankenVerter
     Serial3.write((byte *)buf, strlen(buf));
 	Serial.println(buf);
 }
@@ -604,6 +643,7 @@ byte flags = 0;
     // Calculate and attach a HEX checksum and line termination
 	appendNMEAchecksum(buf, 0);
 	
+	// Send to RS-232 Out #2 on FrankenVerter
     Serial3.write((byte *)buf, strlen(buf));
 	Serial.println(buf);
 }
@@ -1271,10 +1311,19 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			NMEA_delay = millis() + 100;
 			
 			//outputPGRMH();
+			
+			// Send every time
 			outputHSI();
 			outputOBS();
-			outputStation();
+			outputActiveVOR();
 
+			// Send only once/sec
+			if (SL30_Count-- <= 0) {
+				outputStation();
+				outputSL30Misc();
+				SL30_Count = 10;
+			}
+				
 		} else {
 			// Reset the delay to 1 hz
 			NMEA_delay = millis() + 1000;
