@@ -327,6 +327,10 @@ int		FromWPT = 0;
 int		ToWPT = 0;
 
 float	VerticalDeviation = 0;
+int		VerticalDev_UD;
+float	CrossTrackDist;
+int		CrossTrack_RL;
+
 float	SelectedCourse;
 float	ETDest;
 float	DistanceToDest;
@@ -334,8 +338,6 @@ float	TrackAngle;
 float	GroundSpeed;
 float	WPT_Bearing;
 float	DesiredTrack;
-float	CrossTrackDist;
-int		CrossTrack_RL;
 
 float	WPT_Latitude;
 int		WPT_Lat_SN;
@@ -397,11 +399,11 @@ int crs;
 			strcat(buf," ");
 	
 	    // Calculate one byte checksum
-		appendNMEAchecksum(buf, 1);
+		appendSL30checksum(buf);
 	
 		// Send to RS-232 Out #2 on FrankenVerter
 	   	Serial3.write((byte *)buf, strlen(buf));
-		Serial.println(buf);
+		Serial.print(buf);
 }
 
 //	PMMRRV22 - Label for LPV/LNAV+V OBS (Apollo SL30 IM p71)
@@ -422,11 +424,11 @@ int crs;
 		pad_int_to_string_noLR(&(buf[strlen(buf)]), crs, 3);
 	
 	    // Calculate one byte checksum
-		appendNMEAchecksum(buf, 1);
+		appendSL30checksum(buf);
 	
 		// Send to RS-232 Out #2 on FrankenVerter
 	   	Serial3.write((byte *)buf, strlen(buf));
-			Serial.println(buf);
+		Serial.print(buf);
 }
 
 //	Output all the other SL30 sentences in case they're required by the Dynon D180
@@ -436,10 +438,10 @@ void outputActiveVOR(void)
 char buf[64];
 	
  	// Radial from Active VOR
-	strcpy(buf, "$PMRRV2301654");
-	appendNMEAchecksum(buf, 1);
+	strcpy(buf, "$PMRRV2300");
+	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	Serial.print(buf);
 }
 
 //	Output all the other SL30 sentences in case they're required by the Dynon D180
@@ -449,22 +451,22 @@ void outputSL30Misc(void)
 char buf[64];
 	
  	// Radial from Standby VOR
-	strcpy(buf, "$PMRRV2401654");
-	appendNMEAchecksum(buf, 1);
+	strcpy(buf, "$PMRRV2400");
+	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	Serial.print(buf);
 
  	// NAV Receiver Status
-	strcpy(buf, "$PMRRV28E4?PM");
-	appendNMEAchecksum(buf, 1);
+	strcpy(buf, "$PMRRV28E4?PN");
+	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	Serial.print(buf);
 
  	// COMM Tranceiver Status
-	strcpy(buf, "$PMRRV35G4LFR0");
-	appendNMEAchecksum(buf, 1);
+	strcpy(buf, "$PMRRV35P4IPR0");
+	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	Serial.print(buf);
 
 }
 
@@ -474,40 +476,67 @@ void outputHSI(void)
 {
 char buf[64];
 byte i,chksum, flags = 0;
+float dist;
 
 	buf[0] = 0;
 	
-	 	// NMEA Label for CDI/GSI (Apollo SL30 IM p71)
-		strcpy(buf, "$PMRRV21"); // 8 Bytes
-		
-		// Convert lateral and vertical deflection into encoded hex
-		if (LatScaleFactor > 0) {
-			buf[8] = ((HorizontalDeflection & 0xF0) >> 4) + 0x30;
-			buf[9] = (HorizontalDeflection & 0x0F) + 0x30;
-			flags |= LOC_Detect + NAV_Valid + NAV_Super + LOC_Detect + TO_Flag;
-		} else {
-			buf[8] = buf[9] = '0';
-		}
-		
-		if (VertScaleFactor > 0) {
-			buf[10] = ((VerticalDeflection & 0xF0) >> 4) + 0x30;
-			buf[11] = (VerticalDeflection & 0x0F) + 0x30;
-			flags  |= GSI_Valid + GSI_Super;
-		} else {
-			buf[10] = buf[11] = '0';
-		}
-		
-		// Encode the flags
-		buf[12] = ((flags & 0xF0) >> 4) + 0x30;
-		buf[13] = (flags & 0x0F) + 0x30;
-		buf[14] = 0;
+// NMEA Label for CDI/GSI (Apollo SL30 IM p71)
+	strcpy(buf, "$PMRRV21"); // 8 Bytes
 	
-	    // Calculate one byte checksum
-		appendNMEAchecksum(buf, 1);
-	  	
-		// Send to RS-232 Out #2 on FrankenVerter
-	   	Serial3.write((byte *)buf, strlen(buf));
-			Serial.println(buf);
+// Convert lateral and vertical deflection into encoded hex
+	if (LatScaleFactor > 0) {
+		
+		// Calculate how far off center (VSF is full deflection distance)
+		dist = CrossTrackDist / LatScaleFactor * 100;
+		if (dist > 100) dist = 100;
+		if (CrossTrack_RL == 0) dist = dist * -1;
+		
+		// Encode LOC deflection into (HEX) as two byte ascii chars
+		HorizontalDeflection = dist;
+
+		buf[8] = ((HorizontalDeflection & 0xF0) >> 4) + 0x30;
+		buf[9] = (HorizontalDeflection & 0x0F) + 0x30;
+		flags |= NAV_Valid + NAV_Super;
+	}
+	else {
+		buf[8] = buf[9] = '0';
+	}
+	
+	if (VertScaleFactor > 0) {
+		
+		// Calculate how far off center (VSF is full deflection distance)
+		dist = VerticalDeviation / VertScaleFactor * 100;
+		
+		// Peg at +/- 100
+		if (dist > 100) dist = 100;
+		
+		// Encode up.down into numbers
+		if (VerticalDev_UD) {
+			dist *= -1;
+		}
+		
+		// Encode GS deflection into (HEX) as two byte ascii chars
+		VerticalDeflection = dist;
+
+		buf[10] = ((VerticalDeflection & 0xF0) >> 4) + 0x30;
+		buf[11] = (VerticalDeflection & 0x0F) + 0x30;
+		flags  |= GSI_Valid + GSI_Super;
+	} 
+	else {
+		buf[10] = buf[11] = '0';
+	}
+	
+	// Encode the flags
+	buf[12] = ((flags & 0xF0) >> 4) + 0x30;
+	buf[13] = (flags & 0x0F) + 0x30;
+	buf[14] = 0;
+
+    // Calculate one byte checksum
+	appendSL30checksum(buf);
+  	
+	// Send to RS-232 Out #2 on FrankenVerter
+   	Serial3.write((byte *)buf, strlen(buf));
+	Serial.print(buf);
 }
 
 /*
@@ -581,7 +610,7 @@ struct FPStruct* fp;
 	strcat(buf, "D");
 
     // Calculate and attach a HEX checksum and line termination
-	appendNMEAchecksum(buf, 0);
+	appendNMEAchecksum(buf);
 
 	// Send to RS-232 Out #2 on FrankenVerter
     Serial3.write((byte *)buf, strlen(buf));
@@ -641,7 +670,7 @@ byte flags = 0;
 	strcat(buf, "D");
 
     // Calculate and attach a HEX checksum and line termination
-	appendNMEAchecksum(buf, 0);
+	appendNMEAchecksum(buf);
 	
 	// Send to RS-232 Out #2 on FrankenVerter
     Serial3.write((byte *)buf, strlen(buf));
@@ -690,7 +719,7 @@ byte flags = 0;
 	strcat(buf, FlitePlan[FromWPT].msgbuf);
 		
     // Calculate and attach a HEX checksum and line termination
-	appendNMEAchecksum(buf, 0);
+	appendNMEAchecksum(buf);
 	
     Serial3.write((byte *)buf, strlen(buf));
 	Serial.println(buf);
@@ -734,7 +763,7 @@ byte flags = 0;
 		
 		
     // Calculate and attach a HEX checksum and line termination
-	appendNMEAchecksum(buf, 0);
+	appendNMEAchecksum(buf);
 	
     Serial3.write((byte *)buf, strlen(buf));
 	Serial.println(buf);
@@ -742,7 +771,7 @@ byte flags = 0;
 
 
 //	- - - - - - - - - - - - - - - - - - - - - - - - -
-void appendNMEAchecksum(char *buf, int nostar)
+void appendNMEAchecksum(char *buf)
 {
 char chkbuf[8];
 int i, total;
@@ -756,7 +785,7 @@ unsigned int chksum;
     }
 
     // Pad checksum string and add \r\n
-	if (nostar == 0) strcat(buf, "*");
+	strcat(buf, "*");
 
 	// Write string for hex checksum
 	chksum = chksum & 0xFF;
@@ -765,6 +794,33 @@ unsigned int chksum;
 	
 	if (chksum < 16)
 		strcat(buf, "0");
+	
+	strcat(buf, chkbuf);
+
+	// Add the line termination
+   	strcat(buf, "\r\n"); 
+}
+
+//	- - - - - - - - - - - - - - - - - - - - - - - - -
+void appendSL30checksum(char *buf)
+{
+char chkbuf[8];
+int i, total;
+unsigned int chksum;
+	
+    // Calculate one byte checksum
+    total = strlen(buf);
+    
+    for (i=1,chksum=0; i<total; i++) {
+      chksum += byte(buf[i]);
+    }
+
+	// Write string for ascii encoded hex checksum
+	chksum = chksum & 0xFF;
+	chkbuf[1] = ((chksum & 0xF0) >> 4) + 0x30;
+	chkbuf[0] = (chksum & 0x0F) + 0x30;
+	chkbuf[2] = 0;
+	
 	
 	strcat(buf, chkbuf);
 
@@ -914,6 +970,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			FlitePlan[i].stationtype = 0;
 		
 		NumWaypoints = ((word2 &0x3) << 6) + ((b2 & 0xFC) >> 2);
+		Serial.print("Num Waypoints: ");
 		Serial.println(NumWaypoints);
 	break;  
       
@@ -981,75 +1038,40 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0116:
-      SerialPrint(("Cross Track Distance (NM) "));  
+      Serial.print(("Cross Track Distance (NM) "));  
       
 	  CrossTrackDist = distance_bnr_calc(b4, b3, b2, 0, 64);
 	  
 	  // True = Fly Right
 	  CrossTrack_RL  = b4 & 0x80;
-
-      // Reset the valid clock and parse LOC based on Horizontal Scale Factor
-      if (LatScaleFactor > 0) {
-  		LOC_Valid = LOC_VALID_TIME;
-  		
-  		// Calculate how far off center (VSF is full deflection distance)
-  		dist = CrossTrackDist / LatScaleFactor * 100;
-  		if (dist > 100) dist = 100;
-  		if ((b4 & 0x80) ==0) dist = dist * -1;
-  		
-  		// Encode LOC deflection into (HEX) as two byte ascii chars
-  		HorizontalDeflection = dist;
-      }
       
-      SerialPrintln((dist));
+      Serial.println((CrossTrackDist));
     break;
     
     case 0117:
-      SerialPrint(("Vertical Deviation (ft) "));  
-      if (b4 & 0x80)
-        SerialPrint(("Fly Up "));  
-      else
-        SerialPrint(("Fly Down "));  
-      
+      Serial.print(("Vertical Deviation (ft) "));  
+
+	  // True = Fly Up
+	  VerticalDev_UD  = b4 & 0x80;
       VerticalDeviation = distance_bnr_calc(b4, b3, b2, 0, 8192);
-      
-      // Reset the valid clock and parse GS based on Vertical Scale Factor
-      if (VertScaleFactor > 0) {
-  		GS_Valid = GS_VALID_TIME;
-  		
-  		// Calculate how far off center (VSF is full deflection distance)
-  		dist = VerticalDeviation / VertScaleFactor * 100;
-  		
-  		// Peg at +/- 100
-  		if (dist > 100) dist = 100;
-  		
-   		// Encode up.down into numbers
- 		if (b4 & 0x80) {
- 			dist *= -1;
-  			VerticalDeviation *= -1;
-  		}
-  		
-  		// Encode GS deflection into (HEX) as two byte ascii chars
-  		VerticalDeflection = dist;
-      }
-      
-      SerialPrintln((dist));
+            
+      Serial.println((VerticalDeviation));
     break;
     
     case 0121:
       break;	// Disable - it spits out way too much data...
-      SerialPrint(("Horizontal Command (deg) "));  
+      Serial.print(("Horizontal Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Left "));  
       else
         SerialPrint(("Fly Right "));  
 
       angle = distance_bnr_calc(b4, b3, b2, 1, 90); 
-      SerialPrintln((angle));
+      Serial.println((angle));
     break;
 
     case 0122:
-      SerialPrint(("Vertical Command (deg) "));  
+      Serial.print(("Vertical Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Down "));  
       else
@@ -1057,7 +1079,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 
 	// TODO:  Need to parse out the flag info and stop using b2
       angle = distance_bnr_calc(b4, b3, b2, 3, 90); 
-      SerialPrintln((angle));
+      Serial.println((angle));
     break;
 
     case 0125: /* GREENWICH MEAN TIME */ 
@@ -1239,19 +1261,19 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0326:
-      SerialPrint(("Lateral Scale Factor (NM)"));  
+      Serial.print(("Lateral Scale Factor (NM)"));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 64);
       LatScaleFactor = angle;
       
-      SerialPrintln((angle));
+      Serial.println((angle));
     break;
     
     case 0327:
-      SerialPrint(("Vertical Scale Factor (feet)"));  
+      Serial.print(("Vertical Scale Factor (feet)"));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 1024); 
       VertScaleFactor = angle;
       
-      SerialPrintln((angle));
+      Serial.println((angle));
     break;
     
     case 0351:
@@ -1449,8 +1471,13 @@ static  char outstr[128], instrm[128];
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void pad_int_to_string(char *out, int val, int width)
 {
-	int i, vwidth = log10(val) + 1;
-	//Serial.write(char(vwidth)+'0');
+	int i, vwidth;
+
+	if (val)
+		vwidth = log10(val) + 1;
+	else
+		vwidth = 1;
+		
 
 	// Pad total width with zeros
 	for (i=0; i<width; i++)
@@ -1466,8 +1493,13 @@ void pad_int_to_string(char *out, int val, int width)
 
 void pad_int_to_string_noLR(char *out, int val, int width)
 {
-int	i, vwidth = log10(val) + 1;
-
+int	i, vwidth;
+	
+	if (val)
+		vwidth = log10(val) + 1;
+	else
+		vwidth = 1;
+		
 	// Pad total width with zeros
 	for (i=0; i<width; i++)
 		out[i] = '0';
@@ -1693,6 +1725,10 @@ void loop()
   while (true)
   {
     if (Serial.available()) {
+    		LatScaleFactor = VertScaleFactor = 100;
+			outputHSI();
+			outputOBS();
+			outputActiveVOR();
       process_user_command();
     }
     
