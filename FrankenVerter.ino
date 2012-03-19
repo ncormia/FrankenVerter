@@ -808,17 +808,25 @@ char chkbuf[8];
 int i, total;
 unsigned int chksum;
 	
+	Serial.print("Start SL30 checksum: ");
     // Calculate one byte checksum
     total = strlen(buf);
     
     for (i=1,chksum=0; i<total; i++) {
-      chksum += byte(buf[i]);
+      chksum += buf[i];
+		Serial.print(buf[i]);
+		Serial.print(" ");
+		Serial.print(chksum,HEX);
+		Serial.print(" ");
     }
 
 	// Write string for ascii encoded hex checksum
 	chksum = chksum & 0xFF;
-	chkbuf[1] = ((chksum & 0xF0) >> 4) + 0x30;
-	chkbuf[0] = (chksum & 0x0F) + 0x30;
+	
+	Serial.println(chksum,HEX);
+
+	chkbuf[0] = ((chksum & 0xF0) >> 4) + 0x30;
+	chkbuf[1] = (chksum & 0x0F) + 0x30;
 	chkbuf[2] = 0;
 	
 	
@@ -1725,10 +1733,6 @@ void loop()
   while (true)
   {
     if (Serial.available()) {
-    		LatScaleFactor = VertScaleFactor = 100;
-			outputHSI();
-			outputOBS();
-			outputActiveVOR();
       process_user_command();
     }
     
@@ -1737,7 +1741,19 @@ void loop()
     }
     
     // TEST 
-    
+	if (NMEA_delay < millis())
+	{
+			// Reset the delay to 3 hz
+			NMEA_delay = millis() + 333;
+
+		   	VerticalDeviation = 21;
+		   	VertScaleFactor   = 100;
+		   	LatScaleFactor	  = 100;
+			outputHSI();
+			outputOBS();
+			outputActiveVOR();
+			outputSL30Misc();
+    }
     
 /*
     if (r1_activity) if (r1_activity_off_time < millis()) 
