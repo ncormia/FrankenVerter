@@ -806,18 +806,14 @@ void appendSL30checksum(char *buf)
 {
 char chkbuf[8];
 int i, total;
-unsigned int chksum;
+byte chksum;
 	
-	Serial.print("Start SL30 checksum: ");
+	Serial.print("SL30 checksum: ");
     // Calculate one byte checksum
     total = strlen(buf);
     
-    for (i=1,chksum=0; i<total; i++) {
+    for (i=6,chksum=0; i<total; i++) {
       chksum += buf[i];
-		Serial.print(buf[i]);
-		Serial.print(" ");
-		Serial.print(chksum,HEX);
-		Serial.print(" ");
     }
 
 	// Write string for ascii encoded hex checksum
@@ -1669,6 +1665,18 @@ void process_user_command()
   
   switch (command)
   {
+	case 'S':
+	{
+  		   	VerticalDeviation = 21;
+		   	CrossTrackDist	  = 0;
+		   	VertScaleFactor   = 100;
+		   	LatScaleFactor	  = 100;
+			outputHSI();
+			outputOBS();
+			outputActiveVOR();
+			outputSL30Misc();
+			break;
+	}
    case 'l':
    {
      controlword1 = controlword1 | NOTSLFTST;
@@ -1740,13 +1748,14 @@ void loop()
       process_efis_data();
     }
     
-    // TEST 
+    /* TEST 
 	if (NMEA_delay < millis())
 	{
 			// Reset the delay to 3 hz
 			NMEA_delay = millis() + 333;
 
 		   	VerticalDeviation = 21;
+		   	CrossTrackDist	  = 0;
 		   	VertScaleFactor   = 100;
 		   	LatScaleFactor	  = 100;
 			outputHSI();
@@ -1754,7 +1763,10 @@ void loop()
 			outputActiveVOR();
 			outputSL30Misc();
     }
-    
+    // Start SL30 checksum: P 50 M 9D R EF R 41 V 97 2 C9 1 FA 0 2A 0 5A 0 8A 5 BF ? FE 0 2E 2E
+    // Start SL30 checksum: P 50 M 9D R EF R 41 V 97 2 C9 1 FA 0 2A 0 5A 0 8A 0 BA ? F9 0 29 29
+	*/
+
 /*
     if (r1_activity) if (r1_activity_off_time < millis()) 
     {
