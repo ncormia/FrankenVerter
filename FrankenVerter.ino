@@ -1,8 +1,35 @@
 /*
- ARINC 429 to TTL RS232 converter
+	FRANKENVERTER 1.0														10/1/2011
+	
+		An ARINC 429 to NMEA 0183 and SL30 (Garmin Nav Radio) converter.  The Frankenverter 
+		is built as an Arduino Mega Sheild and takes ARINC 429 line level inputs and transcodes
+		the GPS specific input into NMEA 0183 (for enroute and terminal) and SL30 format
+		sentences (for approach/LPV).
+		
+		Also, input from Dynon EFIS telemetry is converted to Shadin FADC (air-data) format
+		for use by Garmin 4/500 series Navigation GPS units.
+		
+		The PCB is available at: http://batchpcb.com/index.php/Products/75449
+		This Arduino shield is compatible with Arduino Mega 2560 (R2) and probably 1280 as well
 
-  Written by Mark Ewert
- */
+	TO DO:
+		- Need to publish a BOM for the PCB!  For now:
+			DEI1016B ARINC line-driver chip
+			77956 CONN,DSUB,.318"RT,15P-F (jameco.com)
+			71618 SOCKET,PLCC,44 PIN,SOLDERTAIL (jameco.com)
+			1 MHZ 7mmx5mm SMD 5V Crystal Oscillator (http://www.ebay.com/itm/10-PCS-1MHz-5-7-SMT-1-MHz-1-000MHz-Crystal-Oscillator-/120874623633)
+			MAX233ACWP RS232 Line Driver (digikey.com)
+			(sorry about the smd parts…)
+			
+		- Major cleanup of vars and defines
+		- Better comments for key code features:  explain why the insane Serial output settings...
+		- Factor code to reduce footprint
+		- Re-establish some sanity of the Serial telemetry output controlled by DEBUG_SERIAL
+		
+	Written by Neil Cormia
+		Based on work of Mark Ewert (http://www.instructables.com/id/Interfacing-Electronic-Circuits-to-Arduinos/)
+  
+*/
  
 #include <avr/io.h>
 #include "arduino_io.h"    // these macros map arduino pins
@@ -10,19 +37,12 @@
 #include "a429_device.h"    
 #include "delay.h" 
 #include "avrio.h"         // these macros do direct port io   
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
-// Now define several utility functions
+// Now define several utility functions for accurate AVR timing delay
 #define DelayNanoseconds(__SN) _delay_cycles( (double)(F_CPU)*((double)__SN)/1.0e9 + 0.5 ) // Hans Heinrichs delay cycle routine
 #define fastWrite(pin, pinval) avrio_WritePin(pin, pinval)
 
-int rxlowspd = 49;
-int rxhighspd = 51;
-int txlowspd = 48;
-int txhighspd = 46;
-int rx1activity = 53;
-int rx2activity = 52;
-int txactivity = 47;
-int loopbackpin = 50;
 
 int inByte = 0;         // incoming Serial byte
 
@@ -64,8 +84,9 @@ void busHiZ()
 }
 
 /*************************************************************************************************
+DEBUG to control Serial Output
 **************************************************************************************************/
-#if 0
+#ifdef DEBUG_SERIAL
 	#define SerialPrint(A)		Serial.print A
 	#define SerialPrintln(A)	Serial.println A
 #else
@@ -110,25 +131,7 @@ void setup()
   digitalWrite(a429ENTX_pin,HIGH);
   digitalWrite(a429LDCW_pin,HIGH);
   digitalWrite(a429DBCEN_pin,HIGH);
-/*
-  pinMode(rxlowspd, OUTPUT);
-  pinMode(rxhighspd, OUTPUT);
-  pinMode(txlowspd, OUTPUT);
-  pinMode(txhighspd, OUTPUT);
-  pinMode(rx1activity, OUTPUT);
-  pinMode(rx2activity, OUTPUT);
-  pinMode(txactivity, OUTPUT);
-  pinMode(loopbackpin, OUTPUT);
 
-  digitalWrite(rxlowspd,HIGH);
-  digitalWrite(rxhighspd,HIGH);
-  digitalWrite(txlowspd,HIGH);
-  digitalWrite(txhighspd,HIGH);
-  digitalWrite(rx1activity,HIGH);
-  digitalWrite(rx2activity,HIGH);
-  digitalWrite(txactivity,HIGH);
-  digitalWrite(loopbackpin,HIGH);
-  */  
   controlword1  = NOTSLFTST;
   controlword1 |= PAREN;  // enable normal operations and parity generator
   controlword2  = TXLO;
@@ -163,37 +166,6 @@ void resetARINC()
   SerialPrint(("resetARINC: "));
   SerialPrintln((controlword2, HEX));
 
-  /*
-  // Update Mode LEDs
-  temp = controlword1 & NOTSLFTST;
-  if (temp)
-    fastWrite(loopbackpin,HIGH); // loopback
-  else
-    fastWrite(loopbackpin,LOW); // loopback
-  
-  temp = controlword2&RXLO;
-  if (temp) 
-  {
-    fastWrite(rxlowspd,HIGH); // low speed receive on
-    fastWrite(rxhighspd,LOW); // high speed receive off
-  }
-  else
-  {
-    fastWrite(rxlowspd,LOW);   // low speed receive off
-    fastWrite(rxhighspd,HIGH); // high speed receive on
-  }
-  temp = controlword2&TXLO;
-  if (temp) 
-  {
-    fastWrite(txlowspd,HIGH); // low speed transmit on
-    fastWrite(txhighspd,LOW); // high speed transmit off
-  }
-  else
-  {
-    fastWrite(txlowspd,LOW); // low speed transmit off
-    fastWrite(txhighspd,HIGH); // high speed transmit on
-  }
-  */
 }
 
 /*************************************************************************************************
@@ -238,7 +210,7 @@ void rxARINC()
   {
     r1_activity_off_time = millis() + 50;  // add 50 millis
     r1_activity = true;
-    fastWrite(rx1activity,LOW); 
+    //fastWrite(rx1activity,LOW); 
     busHiZ();
     fastWrite(a429SEL_pin,LOW);
     DelayNanoseconds(Tssel);  
@@ -1748,37 +1720,9 @@ void loop()
       process_efis_data();
     }
     
-    /* TEST 
-	if (NMEA_delay < millis())
-	{
-			// Reset the delay to 3 hz
-			NMEA_delay = millis() + 333;
 
-		   	VerticalDeviation = 21;
-		   	CrossTrackDist	  = 0;
-		   	VertScaleFactor   = 100;
-		   	LatScaleFactor	  = 100;
-			outputHSI();
-			outputOBS();
-			outputActiveVOR();
-			outputSL30Misc();
-    }
-    // Start SL30 checksum: P 50 M 9D R EF R 41 V 97 2 C9 1 FA 0 2A 0 5A 0 8A 5 BF ? FE 0 2E 2E
-    // Start SL30 checksum: P 50 M 9D R EF R 41 V 97 2 C9 1 FA 0 2A 0 5A 0 8A 0 BA ? F9 0 29 29
-	*/
-
-/*
-    if (r1_activity) if (r1_activity_off_time < millis()) 
-    {
-      r1_activity = false;
-      fastWrite(rx1activity,HIGH); 
-    }
-    if (r2_activity) if (r2_activity_off_time < millis()) 
-    {
-      r2_activity = false;
-      fastWrite(rx2activity,HIGH); 
-    }
-*/
+	// Someday we should really play with ARINC 429 output as well.
+	//
     txReady = digitalRead(a429TXR_pin);
     if (txReady==HIGH)         // the transmitter is not busy now so we can send
     {
