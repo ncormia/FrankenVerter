@@ -45,6 +45,7 @@
 
 
 int inByte = 0;         // incoming Serial byte
+int Test_Output = 0;
 
 byte controlword1;
 byte controlword2;
@@ -791,7 +792,7 @@ byte chksum;
 	// Write string for ascii encoded hex checksum
 	chksum = chksum & 0xFF;
 	
-	Serial.println(chksum,HEX);
+	//Serial.println(chksum,HEX);
 
 	chkbuf[0] = ((chksum & 0xF0) >> 4) + 0x30;
 	chkbuf[1] = (chksum & 0x0F) + 0x30;
@@ -1316,15 +1317,15 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			outputActiveVOR();
 
 			// Send only once/sec
-			if (SL30_Count-- <= 0) {
+			//if (SL30_Count-- <= 0) {
 				outputStation();
 				outputSL30Misc();
 				SL30_Count = 10;
-			}
+			//}
 				
 		} else {
-			// Reset the delay to 1 hz
-			NMEA_delay = millis() + 1000;
+			// Reset the delay to 5 hz
+			NMEA_delay = millis() + 200;
 			
 			// Send the minimum required NMEA every time
 			outputRMC();
@@ -1631,75 +1632,68 @@ void process_efis_data()
 
 void process_user_command()
 {
-  byte command = ' ';
-  command = Serial.read();
+	byte command = ' ';
+	command = Serial.read();
 
   
-  switch (command)
-  {
+	switch (command)
+	{
 	case 'S':
 	{
-  		   	VerticalDeviation = 21;
-		   	CrossTrackDist	  = 0;
-		   	VertScaleFactor   = 100;
-		   	LatScaleFactor	  = 100;
-			outputHSI();
-			outputOBS();
-			outputActiveVOR();
-			outputSL30Misc();
-			break;
+	   	Test_Output ^= 1;
+		break;
 	}
-   case 'l':
-   {
-     controlword1 = controlword1 | NOTSLFTST;
-     resetARINC();
-     break;
-   }
-   case 'L':
-   {
-     controlword1 = controlword1 & ~NOTSLFTST; 
-     resetARINC();
-     break;
-   }
-   case 'P':
-   {
-     controlword1 = controlword1 | PAREN;
-     resetARINC();
-     break;
-   }
-   case 'p':
-   {
-     controlword1 = controlword1 & ~PAREN; 
-     resetARINC();
-     break;
-   }
-   case 'r':
-   {
-     controlword2 = controlword2 | RXLO;
-     resetARINC();
-     break;
-   }
-   case 'R':
-   {
-     controlword2 = controlword2 & ~RXLO; 
-     resetARINC();
-     break;
-   }
-   case 't':
-   {
-     controlword2 = controlword2 | TXLO;
-     resetARINC();
-     break;
-   }
-   case 'T':
-   {
-     controlword2 = controlword2 & ~TXLO; 
-     resetARINC();
-     break;
-   }
-   default:
-     break;
- }
+	case 'l':
+	{
+		controlword1 = controlword1 | NOTSLFTST;
+		resetARINC();
+		break;
+	}
+	case 'L':
+	{
+		controlword1 = controlword1 & ~NOTSLFTST; 
+		resetARINC();
+		break;
+	}
+	case 'P':
+	{
+		controlword1 = controlword1 | PAREN;
+		resetARINC();
+		break;
+	}
+	case 'p':
+	{
+		controlword1 = controlword1 & ~PAREN; 
+		resetARINC();
+		break;
+	}
+	case 'r':
+	{
+		controlword2 = controlword2 | RXLO;
+		resetARINC();
+		break;
+	}
+	case 'R':
+	{
+		controlword2 = controlword2 & ~RXLO; 
+		resetARINC();
+		break;
+	}
+	case 't':
+	{
+		controlword2 = controlword2 | TXLO;
+		resetARINC();
+		break;
+	}
+	case 'T':
+	{
+		controlword2 = controlword2 & ~TXLO; 
+		resetARINC();
+		break;
+	}
+	default:
+		break;
+	}
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1720,6 +1714,23 @@ void loop()
       process_efis_data();
     }
     
+
+  // TEST Output
+  
+    
+	if (Test_Output && (NMEA_delay < millis()))
+	{
+			// Reset the delay to 10 hz
+			NMEA_delay = millis() + 100;
+
+		   	VerticalDeviation = 21;
+		   	VertScaleFactor   = 100;
+		   	LatScaleFactor	  = 100;
+			outputHSI();
+			outputOBS();
+			outputActiveVOR();
+			outputSL30Misc();
+    }
 
 	// Someday we should really play with ARINC 429 output as well.
 	//
