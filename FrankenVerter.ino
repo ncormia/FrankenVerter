@@ -46,6 +46,8 @@
 
 int inByte = 0;         // incoming Serial byte
 int Test_Output = 0;
+int	Test_Rate = 1000;
+int Test_VNAV = 0;
 
 byte controlword1;
 byte controlword2;
@@ -537,6 +539,7 @@ void outputRMB(void)
 char buf[128], chkbuf[8];
 byte i,chksum, flags = 0;
 struct FPStruct* fp;
+float dist;
 
 	buf[0] = 0;
 	
@@ -546,8 +549,12 @@ struct FPStruct* fp;
 	// Valid flag
 	strcat(buf, "A,");
 		
-	// XTE
-	appendFloat(buf, CrossTrackDist, 2);
+	// XTE - Calculate how far off center (VSF is full deflection distance)
+	dist = CrossTrackDist / LatScaleFactor * 10;
+	if (dist > 10) dist = 10;
+	if (CrossTrack_RL == 0) dist = dist * -1;
+	
+	appendFloat(buf, dist, 2);
 	strcat(buf, CrossTrack_RL ? ",R,":",L,");
 	
 	// Origin and Dest Waypoint IDs
@@ -711,6 +718,7 @@ void outputPGRMH(void)
 {
 char buf[128];
 byte flags = 0;
+float dist;
 
 	buf[0] = 0;
 	
@@ -723,8 +731,19 @@ byte flags = 0;
 	// VSI Missing!!! Don't have it in ARINC???
 	strcat(buf, "0,");
 
+	// Calculate how far off center (VSF is full deflection distance)
+	dist = VerticalDeviation / VertScaleFactor * 999;
+	
+	// Peg at +/- 100
+	if (dist > 999) dist = 999;
+	
+	// Encode up.down into numbers
+	if (VerticalDev_UD) {
+		dist *= -1;
+	}
+	
 	// Deviation above(+) or below (-) G/S
-	appendFloat(buf, VerticalDeviation, 1);
+	appendFloat(buf, dist, 1);
 	strcat(buf, ",");	// blank for now
 		
 	// FPM to Target and Waypoint Missing!!! No HAT either.  Don't have it in ARINC???
@@ -1306,32 +1325,33 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 	{
 		// Send the Vertical Nav only if valid
 		if (VerticalDeviation != 0) {
+			
 			// Reset the delay to 10 hz
 			NMEA_delay = millis() + 100;
 			
-			//outputPGRMH();
+			outputPGRMH();
 			
 			// Send every time
-			outputHSI();
-			outputOBS();
-			outputActiveVOR();
+			//outputHSI();
+			//outputOBS();
+			//outputActiveVOR();
 
 			// Send only once/sec
 			//if (SL30_Count-- <= 0) {
-				outputStation();
-				outputSL30Misc();
-				SL30_Count = 10;
+				//outputStation();
+				//outputSL30Misc();
+				//SL30_Count = 10;
 			//}
 				
 		} else {
 			// Reset the delay to 5 hz
 			NMEA_delay = millis() + 200;
-			
-			// Send the minimum required NMEA every time
-			outputRMC();
-			outputRMB();
-			outputBOD();
 		}
+		
+		// Send the minimum required NMEA every time
+		outputRMC();
+		outputRMB();
+		outputBOD();
 	}
 
 
@@ -1636,11 +1656,17 @@ void process_user_command()
 	command = Serial.read();
 
   
+  	if (command >= '0' && command <= '9')
+  	{
+	   	Test_Rate = (command - 0x2F)*50;
+  	}
+  	
 	switch (command)
 	{
 	case 'S':
 	{
 	   	Test_Output ^= 1;
+	   	Test_Rate = 1000;
 		break;
 	}
 	case 'l':
@@ -1721,15 +1747,24 @@ void loop()
 	if (Test_Output && (NMEA_delay < millis()))
 	{
 			// Reset the delay to 10 hz
-			NMEA_delay = millis() + 100;
+			NMEA_delay = millis() + Test_Rate;
 
-		   	VerticalDeviation = 21;
+		   	VerticalDeviation = Test_VNAV;
+		   	CrossTrackDist    = Test_VNAV++;
+		   	if (Test_VNAV > 100) Test_VNAV = -100;
+		   	
 		   	VertScaleFactor   = 100;
 		   	LatScaleFactor	  = 100;
-			outputHSI();
-			outputOBS();
-			outputActiveVOR();
-			outputSL30Misc();
+
+			outputPGRMH();
+			outputRMC();
+			outputRMB();
+			outputBOD();
+
+			//outputHSI();
+			//outputOBS();
+			//outputActiveVOR();
+			//outputSL30Misc();
     }
 
 	// Someday we should really play with ARINC 429 output as well.
