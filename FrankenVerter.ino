@@ -1749,8 +1749,10 @@ void loop()
 			// Reset the delay to 10 hz
 			NMEA_delay = millis() + Test_Rate;
 
+			SelectedCourse	  = Test_VNAV + 100;
 		   	VerticalDeviation = Test_VNAV;
 		   	CrossTrackDist    = Test_VNAV++;
+		   	
 		   	if (Test_VNAV > 100) Test_VNAV = -100;
 		   	
 		   	VertScaleFactor   = 100;
