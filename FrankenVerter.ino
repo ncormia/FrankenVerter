@@ -45,8 +45,8 @@
 
 
 int inByte = 0;         // incoming Serial byte
-int Test_Output = 0;
-int	Test_Rate = 1000;
+int Test_Output = 1;
+int	Test_Rate = 100;
 int Test_VNAV = 0;
 
 byte controlword1;
@@ -552,7 +552,6 @@ float dist;
 	// XTE - Calculate how far off center (VSF is full deflection distance)
 	dist = CrossTrackDist / LatScaleFactor * 10;
 	if (dist > 10) dist = 10;
-	if (CrossTrack_RL == 0) dist = dist * -1;
 	
 	appendFloat(buf, dist, 2);
 	strcat(buf, CrossTrack_RL ? ",R,":",L,");
@@ -862,11 +861,11 @@ void appendFloat(char *buf, float fvar, int precision)
 		
 		// Pull the decimal portion into an integer and string-ify
 		dec = abs(fvar - ivar);
-		for (pwrten=1,i=0; i<precision; i++)
-			pwrten *= 10;
-			
-		idec = dec * pwrten;
-		itoa(idec, &(buf[strlen(buf)]),10);
+		for (i=0; i<precision; i++) {
+			dec *= 10;
+			itoa(int(dec), &(buf[strlen(buf)]),10);
+			dec -= int(dec);
+		}
 	}
 }
 
@@ -1751,7 +1750,9 @@ void loop()
 
 			SelectedCourse	  = Test_VNAV + 100;
 		   	VerticalDeviation = Test_VNAV;
-		   	CrossTrackDist    = Test_VNAV++;
+		   	CrossTrackDist    = abs(Test_VNAV);
+		   	CrossTrack_RL	  = (Test_VNAV < 0) ? 1 : 0;
+		   	Test_VNAV++;
 		   	
 		   	if (Test_VNAV > 100) Test_VNAV = -100;
 		   	
