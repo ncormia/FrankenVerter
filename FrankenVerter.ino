@@ -549,9 +549,11 @@ float dist;
 	// Valid flag
 	strcat(buf, "A,");
 		
-	// XTE - Calculate how far off center (VSF is full deflection distance)
-	dist = CrossTrackDist / LatScaleFactor * 10;
-	if (dist > 10) dist = 10;
+	// XTE - Calculate how far off center (LSF is full deflection distance)
+	// normalize to no more than full deflection. Dynon max scale is 5 NM.
+	//
+	dist = CrossTrackDist / LatScaleFactor * 5;
+	if (dist > 5) dist = 5;
 	
 	appendFloat(buf, dist, 2);
 	strcat(buf, CrossTrack_RL ? ",R,":",L,");
