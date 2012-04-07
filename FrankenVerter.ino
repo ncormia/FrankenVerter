@@ -45,7 +45,7 @@
 
 
 int inByte = 0;         // incoming Serial byte
-int Test_Output = 1;
+int Test_Output = 0;
 int	Test_Rate = 100;
 int Test_VNAV = 0;
 
@@ -301,6 +301,7 @@ int		NumWaypoints = 0;
 int		FromWPT = 0;
 int		ToWPT = 0;
 
+int		GS_Timeout = 0;
 float	VerticalDeviation = 0;
 int		VerticalDev_UD;
 float	CrossTrackDist;
@@ -745,7 +746,7 @@ float dist;
 	
 	// Deviation above(+) or below (-) G/S
 	appendFloat(buf, dist, 1);
-	strcat(buf, ",");	// blank for now
+	strcat(buf, ",");
 		
 	// FPM to Target and Waypoint Missing!!! No HAT either.  Don't have it in ARINC???
 	strcat(buf, "0,0,0,");
@@ -1051,6 +1052,9 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 	  // True = Fly Up
 	  VerticalDev_UD  = b4 & 0x80;
       VerticalDeviation = distance_bnr_calc(b4, b3, b2, 0, 8192);
+      
+      // Restart the GS timeout.  If this expires it clears VerticalDeviation and the GS display.
+      GS_Timeout = 2000;
             
       Serial.println((VerticalDeviation));
     break;
@@ -1330,8 +1334,14 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			// Reset the delay to 10 hz
 			NMEA_delay = millis() + 100;
 			
+			// Send the NMEA VNAV message
 			outputPGRMH();
 			
+			// Don't display stale GS data
+			if (--GS_Timeout == 0)
+				VerticalDeviation = 0;
+
+		
 			// Send every time
 			//outputHSI();
 			//outputOBS();
