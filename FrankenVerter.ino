@@ -123,6 +123,12 @@ void setup()
   pinMode(a429DBCEN_pin, OUTPUT); 
   pinMode(a429MR_pin, OUTPUT);
 
+  // Init Annunciators
+  #define Annunciate_TRM	20
+  #define Annunciate_APR	21
+  pinMode(Annunciate_TRM, OUTPUT);
+  pinMode(Annunciate_APR, OUTPUT);
+
     
   /* initialize the ARINC uart */
   digitalWrite(a429MR_pin,HIGH);
@@ -716,7 +722,7 @@ byte flags = 0;
 //	- - - - - - - - - - - - - - - - - - - - - - - - -
 //	PGRMH - Garmin Proprietary VNAV Sentence
 //
-void outputPGRMH(void)
+void outputPGRMH(int valid)
 {
 char buf[128];
 byte flags = 0;
@@ -728,7 +734,7 @@ float dist;
 	strcpy(buf, "$PGRMH,");
 	
 	// Valid Sentence
-	strcat(buf, "A,");
+	(valid) ? strcat(buf, "A,") : strcat(buf, "v,");
 
 	// VSI Missing!!! Don't have it in ARINC???
 	strcat(buf, "0,");
@@ -1054,7 +1060,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       VerticalDeviation = distance_bnr_calc(b4, b3, b2, 0, 8192);
       
       // Restart the GS timeout.  If this expires it clears VerticalDeviation and the GS display.
-      GS_Timeout = 2000;
+      GS_Timeout = 20;
             
       Serial.println((VerticalDeviation));
     break;
@@ -1329,20 +1335,22 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 	if (NMEA_delay < millis())
 	{
 		// Send the Vertical Nav only if valid
-		if (VerticalDeviation != 0) {
+		if (GS_Timeout != 0) {
 			
 			// Reset the delay to 10 hz
 			NMEA_delay = millis() + 100;
 			
 			// Send the NMEA VNAV message
-			outputPGRMH();
-			
-			// Don't display stale GS data
-			if (--GS_Timeout == 0)
+			if (--GS_Timeout == 0) {
 				VerticalDeviation = 0;
+				// Don't display stale GS data
+				outputPGRMH(0);
+			}
+			else
+				outputPGRMH(1);
 
 		
-			// Send every time
+			// OLD SL30 OUTPUT - Send every time
 			//outputHSI();
 			//outputOBS();
 			//outputActiveVOR();
@@ -1771,11 +1779,19 @@ void loop()
 		   	VertScaleFactor   = 100;
 		   	LatScaleFactor	  = 100;
 
-			outputPGRMH();
+			outputPGRMH(1);
 			outputRMC();
 			outputRMB();
 			outputBOD();
 
+			if (CrossTrack_RL) {
+				digitalWrite(Annunciate_TRM,HIGH);
+				digitalWrite(Annunciate_APR,LOW);
+			} else {
+				digitalWrite(Annunciate_TRM,LOW);
+				digitalWrite(Annunciate_APR,HIGH);
+			}
+			
 			//outputHSI();
 			//outputOBS();
 			//outputActiveVOR();
