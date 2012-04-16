@@ -734,33 +734,35 @@ float dist;
 	strcpy(buf, "$PGRMH,");
 	
 	// Valid Sentence
-	(valid) ? strcat(buf, "A,") : strcat(buf, "v,");
-
-	// VSI Missing!!! Don't have it in ARINC???
-	strcat(buf, "0,");
-
-	// Calculate how far off center (VSF is full deflection distance)
-	dist = VerticalDeviation / VertScaleFactor * 999;
+	if (valid) {
+		// A for valid, VSI Missing - Don't have it in ARINC spec
+		strcat(buf, "A,,");
 	
-	// Peg at +/- 100
-	if (dist > 999) dist = 999;
+		// Calculate how far off center (VSF is full deflection distance)
+		dist = VerticalDeviation / VertScaleFactor * 999;
+		
+		// Peg at +/- 100
+		if (dist > 999) dist = 999;
+		
+		// Encode up.down into numbers
+		if (VerticalDev_UD) {
+			dist *= -1;
+		}
+		
+		// Deviation above(+) or below (-) G/S
+		appendFloat(buf, dist, 1);
+		strcat(buf, ",");
+			
+		// FPM to Target and Waypoint Missing!!! No HAT either.  Don't have it in ARINC???
+		strcat(buf, ",,2000,");
 	
-	// Encode up.down into numbers
-	if (VerticalDev_UD) {
-		dist *= -1;
+		// DTK (true)
+		appendFloat(buf, DesiredTrack, 1);
+		strcat(buf, ",");
 	}
-	
-	// Deviation above(+) or below (-) G/S
-	appendFloat(buf, dist, 1);
-	strcat(buf, ",");
-		
-	// FPM to Target and Waypoint Missing!!! No HAT either.  Don't have it in ARINC???
-	strcat(buf, "0,0,0,");
-
-	// DTK (true)
-	appendFloat(buf, DesiredTrack, 1);
-	strcat(buf, ",");
-		
+	else {
+		strcat(buf, "V,,,,,,,");
+	}
 		
     // Calculate and attach a HEX checksum and line termination
 	appendNMEAchecksum(buf);
@@ -1779,7 +1781,7 @@ void loop()
 		   	VertScaleFactor   = 100;
 		   	LatScaleFactor	  = 100;
 
-			outputPGRMH(1);
+			outputPGRMH(CrossTrack_RL);
 			outputRMC();
 			outputRMB();
 			outputBOD();
