@@ -336,7 +336,7 @@ int	 SL30_Count = 0;
 
 // -------------	GlideSlope and Localizer flags and values	-------------
 // These are timeout values that are set to (???) MSec when valid and count down to zero if
-// no updates occur or if an invalid data flag is sensed.
+// no updates occur or if an invalid data flag is sensed. NOT USED!!!!
 #define	GS_VALID_TIME	1000
 #define	LOC_VALID_TIME	1000
 
@@ -918,7 +918,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     word3 = word2 + b2<<16;
     
     // Don't re-parse the same ARINC sentence if it has not changed - just exit
-   if ((label_table[b1] == word2) && (b2_table[b1] == b2) && (b1 != 0305))
+   if ((label_table[b1] == word2) && (b2_table[b1] == b2) && (b1 != 0305) && (b1 != 0117))
       return;
     else {
         label_table[b1] = word2;
@@ -1343,8 +1343,10 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			NMEA_delay = millis() + 100;
 			
 			// Send the NMEA VNAV message
-			if (--GS_Timeout == 0) {
+			if (--GS_Timeout <= 0) {
 				VerticalDeviation = 0;
+				GS_Timeout = 0;
+				
 				// Don't display stale GS data
 				outputPGRMH(0);
 			}
