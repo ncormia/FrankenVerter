@@ -385,7 +385,7 @@ int crs;
 	
 		// Send to RS-232 Out #2 on FrankenVerter
 	   	Serial3.write((byte *)buf, strlen(buf));
-		Serial.print(buf);
+		//SerialPrint((buf));
 }
 
 //	PMMRRV22 - Label for LPV/LNAV+V OBS (Apollo SL30 IM p71)
@@ -410,7 +410,7 @@ int crs;
 	
 		// Send to RS-232 Out #2 on FrankenVerter
 	   	Serial3.write((byte *)buf, strlen(buf));
-		Serial.print(buf);
+		//SerialPrint((buf));
 }
 
 //	Output all the other SL30 sentences in case they're required by the Dynon D180
@@ -423,7 +423,7 @@ char buf[64];
 	strcpy(buf, "$PMRRV2300");
 	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.print(buf);
+	//SerialPrint((buf));
 }
 
 //	Output all the other SL30 sentences in case they're required by the Dynon D180
@@ -436,19 +436,19 @@ char buf[64];
 	strcpy(buf, "$PMRRV2400");
 	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.print(buf);
+	//Serial.print(buf);
 
  	// NAV Receiver Status
 	strcpy(buf, "$PMRRV28E4?PN");
 	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.print(buf);
+	//Serial.print(buf);
 
  	// COMM Tranceiver Status
 	strcpy(buf, "$PMRRV35P4IPR0");
 	appendSL30checksum(buf);
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.print(buf);
+	//Serial.print(buf);
 
 }
 
@@ -518,7 +518,7 @@ float dist;
   	
 	// Send to RS-232 Out #2 on FrankenVerter
    	Serial3.write((byte *)buf, strlen(buf));
-	Serial.print(buf);
+	//Serial.print(buf);
 }
 
 /*
@@ -602,7 +602,7 @@ float dist;
 
 	// Send to RS-232 Out #2 on FrankenVerter
     Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	//Serial.println(buf);
 }
 
 
@@ -662,7 +662,7 @@ byte flags = 0;
 	
 	// Send to RS-232 Out #2 on FrankenVerter
     Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	//Serial.println(buf);
 }
 
 /*
@@ -710,7 +710,7 @@ byte flags = 0;
 	appendNMEAchecksum(buf);
 	
     Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	//Serial.println(buf);
 }
 
 
@@ -768,7 +768,7 @@ float dist;
 	appendNMEAchecksum(buf);
 	
     Serial3.write((byte *)buf, strlen(buf));
-	Serial.println(buf);
+	//Serial.println(buf);
 }
 
 
@@ -810,7 +810,7 @@ char chkbuf[8];
 int i, total;
 byte chksum;
 	
-	Serial.print("SL30 checksum: ");
+	//Serial.print("SL30 checksum: ");
     // Calculate one byte checksum
     total = strlen(buf);
     
@@ -976,8 +976,8 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			FlitePlan[i].stationtype = 0;
 		
 		NumWaypoints = ((word2 &0x3) << 6) + ((b2 & 0xFC) >> 2);
-		Serial.print("Num Waypoints: ");
-		Serial.println(NumWaypoints);
+		SerialPrint(("Num Waypoints: "));
+		SerialPrintln((NumWaypoints));
 	break;  
       
     
@@ -1010,21 +1010,21 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 		  	}
       
      
-			Serial.print(("From WPT: "));	Serial.print((FromWPT));
-			Serial.print((" To WPT: "));	Serial.println((ToWPT));
+			SerialPrint(("From WPT: "));	SerialPrint((FromWPT));
+			SerialPrint((" To WPT: "));	SerialPrintln((ToWPT));
     		for (i=1; i<= 20; i++) 
     			if (FlitePlan[i].stationtype > 0) {
-		  		Serial.print((i));
-				Serial.print((", "));
-				Serial.print((FlitePlan[i].stationtype));
-				Serial.print((": "));
-				Serial.print((FlitePlan[i].msgbuf));
-				Serial.print((", "));
-		  		Serial.print(FlitePlan[i].wptlatitude, 6);
-		  		Serial.print(FlitePlan[i].wptlatSN ? 'S':'N');
-				Serial.print((", "));
-		  		Serial.print(FlitePlan[i].wptlongitude, 6);
-		  		Serial.println(FlitePlan[i].wptlongWE ? 'W':'E');
+		  		SerialPrint((i));
+				SerialPrint((", "));
+				SerialPrint((FlitePlan[i].stationtype));
+				SerialPrint((": "));
+				SerialPrint((FlitePlan[i].msgbuf));
+				SerialPrint((", "));
+		  		SerialPrint((FlitePlan[i].wptlatitude, 6));
+		  		SerialPrint((FlitePlan[i].wptlatSN ? 'S':'N'));
+				SerialPrint((", "));
+		  		SerialPrint((FlitePlan[i].wptlongitude, 6));
+		  		SerialPrintln((FlitePlan[i].wptlongWE ? 'W':'E'));
 	  		}
 		}
 	break;	
@@ -1044,18 +1044,18 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0116:
-      Serial.print(("Cross Track Distance (NM) "));  
+      SerialPrint(("Cross Track Distance (NM) "));  
       
 	  CrossTrackDist = distance_bnr_calc(b4, b3, b2, 0, 64);
 	  
 	  // True = Fly Right
 	  CrossTrack_RL  = b4 & 0x80;
       
-      Serial.println((CrossTrackDist));
+      SerialPrintln((CrossTrackDist));
     break;
     
     case 0117:
-      Serial.print(("Vertical Deviation (ft) "));  
+      SerialPrint(("Vertical Deviation (ft) "));  
 
 	  // True = Fly Up
 	  VerticalDev_UD  = b4 & 0x80;
@@ -1064,23 +1064,23 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       // Restart the GS timeout.  If this expires it clears VerticalDeviation and the GS display.
       GS_Timeout = 20;
             
-      Serial.println((VerticalDeviation));
+      SerialPrintln((VerticalDeviation));
     break;
     
     case 0121:
       break;	// Disable - it spits out way too much data...
-      Serial.print(("Horizontal Command (deg) "));  
+      SerialPrint(("Horizontal Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Left "));  
       else
         SerialPrint(("Fly Right "));  
 
       angle = distance_bnr_calc(b4, b3, b2, 1, 90); 
-      Serial.println((angle));
+      SerialPrintln((angle));
     break;
 
     case 0122:
-      Serial.print(("Vertical Command (deg) "));  
+      SerialPrint(("Vertical Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Down "));  
       else
@@ -1088,7 +1088,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 
 	// TODO:  Need to parse out the flag info and stop using b2
       angle = distance_bnr_calc(b4, b3, b2, 3, 90); 
-      Serial.println((angle));
+      SerialPrintln((angle));
     break;
 
     case 0125: /* GREENWICH MEAN TIME */ 
@@ -1105,8 +1105,8 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
   		GMTBuf[5] = one%10 + 0x30;
     	GMTBuf[6] = 0;
  		
-      	//Serial.print("availableMemory: ");  
- 		//Serial.println(availableMemory());
+      	//SerialPrint("availableMemory: ");  
+ 		//SerialPrintln(availableMemory());
  		
     break;
     
@@ -1270,19 +1270,19 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0326:
-      Serial.print(("Lateral Scale Factor (NM)"));  
+      SerialPrint(("Lateral Scale Factor (NM)"));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 64);
       LatScaleFactor = angle;
       
-      Serial.println((angle));
+      SerialPrintln((angle));
     break;
     
     case 0327:
-      Serial.print(("Vertical Scale Factor (feet)"));  
+      SerialPrint(("Vertical Scale Factor (feet)"));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 1024); 
       VertScaleFactor = angle;
       
-      Serial.println((angle));
+      SerialPrintln((angle));
     break;
     
     case 0351:
@@ -1657,8 +1657,8 @@ void process_efis_data()
       // DEBUG: Serial.write((byte *)instrm, stream_pos);
       
       if (EFISCount == 0) {
-        //Serial.print(stream_pos);
-        //Serial.print(" ");
+        //SerialPrint(stream_pos);
+        //SerialPrint(" ");
         convert_efis_to_fadc();
         EFISCount == 10;
       } else
