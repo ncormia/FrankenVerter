@@ -43,8 +43,9 @@
 #define DelayNanoseconds(__SN) _delay_cycles( (double)(F_CPU)*((double)__SN)/1.0e9 + 0.5 ) // Hans Heinrichs delay cycle routine
 #define fastWrite(pin, pinval) avrio_WritePin(pin, pinval)
 
+#define NMEA_DELAY_MS	100		// 10 updates per second
 
-int inByte = 0;         // incoming Serial byte
+int inByte = 0;         		// incoming Serial byte
 int Test_Output = 0;
 int	Test_Rate = 100;
 int Test_VNAV = 0;
@@ -1336,39 +1337,23 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     // When ANY ARINC data comes in do a time-check to pace the NMEA output
 	if (NMEA_delay < millis())
 	{
-		// Send the Vertical Nav only if valid
-		if (GS_Timeout != 0) {
+		// Reset the delay to 10 hz
+		NMEA_delay = millis() + NMEA_DELAY_MS;
 			
-			// Reset the delay to 10 hz
-			NMEA_delay = millis() + 100;
+		// Send the Vertical Nav only if valid
+		if (GS_Timeout-- > 0) {
 			
 			// Send the NMEA VNAV message
-			if (--GS_Timeout <= 0) {
-				VerticalDeviation = 0;
-				GS_Timeout = 0;
-				
-				// Don't display stale GS data
-				outputPGRMH(0);
-			}
-			else
-				outputPGRMH(1);
-
-		
-			// OLD SL30 OUTPUT - Send every time
-			//outputHSI();
-			//outputOBS();
-			//outputActiveVOR();
-
-			// Send only once/sec
-			//if (SL30_Count-- <= 0) {
-				//outputStation();
-				//outputSL30Misc();
-				//SL30_Count = 10;
-			//}
-				
+			outputPGRMH(1);
 		} else {
-			// Reset the delay to 5 hz
-			NMEA_delay = millis() + 200;
+		
+			// Reset GS vars
+			VerticalDeviation = 0;
+			GS_Timeout = 0;
+			
+			// Don't display stale GS data
+			outputPGRMH(0);
+			
 		}
 		
 		// Send the minimum required NMEA every time
