@@ -1645,7 +1645,7 @@ void process_efis_data()
         //SerialPrint(stream_pos);
         //SerialPrint(" ");
         convert_efis_to_fadc();
-        EFISCount == 10;
+        EFISCount = 7;
       } else
         EFISCount--;
     }
