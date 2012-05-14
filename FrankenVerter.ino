@@ -1641,13 +1641,15 @@ void process_efis_data()
       
       // DEBUG: Serial.write((byte *)instrm, stream_pos);
       
-      if (EFISCount == 0) {
+      //if (EFISCount == 0) {
         //SerialPrint(stream_pos);
         //SerialPrint(" ");
+      
         convert_efis_to_fadc();
-        EFISCount = 7;
-      } else
-        EFISCount--;
+     
+      //  EFISCount = 7;
+      //} else
+      //  EFISCount--;
     }
 
     stream_pos = 0;
