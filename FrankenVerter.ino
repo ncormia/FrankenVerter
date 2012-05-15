@@ -149,6 +149,7 @@ void setup()
   SerialPrint(("setup: "));
   SerialPrintln((controlword2, HEX));
   
+
   busoutput();
 }
 
@@ -349,6 +350,13 @@ int	 SL30_Count = 0;
 #define GSI_Valid	0x20
 #define NAV_Super	0x40
 #define NAV_Valid	0x80
+
+#define GPS_ENROUTE		 0
+#define GPS_TERMINAL	20
+#define GPS_APPROACH	21
+
+int		GPS_Range = GPS_ENROUTE;
+
 
 int   	GS_Valid 	= 0;
 int   	LOC_Valid	= 0;
@@ -1056,7 +1064,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0117:
-      SerialPrint(("Vertical Deviation (ft) "));  
+      Serial.print(("Vertical Deviation (ft) "));  
 
 	  // True = Fly Up
 	  VerticalDev_UD  = b4 & 0x80;
@@ -1065,7 +1073,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       // Restart the GS timeout.  If this expires it clears VerticalDeviation and the GS display.
       GS_Timeout = 20;
             
-      SerialPrintln((VerticalDeviation));
+      Serial.println((VerticalDeviation));
     break;
     
     case 0121:
@@ -1275,15 +1283,32 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       angle = angle_bnr_calc(b4, b3, b2, 0, 64);
       LatScaleFactor = angle;
       
+		// Set GPS Mode Range
+		if (LatScaleFactor <= 0.3) {
+			GPS_Range = GPS_APPROACH;
+			digitalWrite(GPS_APPROACH,HIGH);
+			digitalWrite(GPS_TERMINAL,LOW);
+		}
+		else if (LatScaleFactor <= 1.0) {
+			GPS_Range = GPS_TERMINAL;
+			digitalWrite(GPS_APPROACH,LOW);
+			digitalWrite(GPS_TERMINAL,HIGH);
+		}
+		else {
+			GPS_Range = GPS_ENROUTE;
+			digitalWrite(GPS_APPROACH,LOW);
+			digitalWrite(GPS_TERMINAL,LOW);
+		}
+      
       SerialPrintln((angle));
     break;
     
     case 0327:
-      SerialPrint(("Vertical Scale Factor (feet)"));  
+      Serial.print(("Vertical Scale Factor (feet)"));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 1024); 
       VertScaleFactor = angle;
       
-      SerialPrintln((angle));
+      Serial.println((angle));
     break;
     
     case 0351:
@@ -1352,7 +1377,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			GS_Timeout = 0;
 			
 			// Don't display stale GS data
-			outputPGRMH(0);
+			// outputPGRMH(0);
 			
 		}
 		
