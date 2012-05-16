@@ -318,6 +318,7 @@ int		CrossTrack_RL;
 float	SelectedCourse;
 float	ETDest;
 float	DistanceToDest;
+float	DistanceToGo;
 float	TrackAngle;
 float	GroundSpeed;
 float	WPT_Bearing;
@@ -588,7 +589,7 @@ float dist;
 	strcat(buf, fp->wptlongWE ? ",W,":",E,");
 	
 
-	appendFloat(buf, DistanceToDest, 1);
+	appendFloat(buf, DistanceToGo, 1);
 	strcat(buf, ",");
 	
 	appendFloat(buf, WPT_Bearing, 1);
@@ -927,16 +928,17 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     word3 = word2 + b2<<16;
     
     // Don't re-parse the same ARINC sentence if it has not changed - just exit
-   if ((label_table[b1] == word2) && (b2_table[b1] == b2) && (b1 != 0305) && (b1 != 0117))
-      return;
-    else {
+   //if ((label_table[b1] == word2) && (b2_table[b1] == b2) && (b1 != 0305) && (b1 != 0117))
+   //   return;
+   // else {
         label_table[b1] = word2;
         b2_table[b1]	= b2;
-	}
+	//}
 
     switch (b1) {
    
     case 01:  
+    	break;  
       SerialPrint(("Distance "));
 
       tho = (word2 & 0xE000)>>13;
@@ -951,7 +953,8 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;  
     
     case 02:  
-      SerialPrint(("Time To Go "));
+     break;  
+     SerialPrint(("Time To Go "));
 
       hun = (word2 & 0xE000)>>13;
       ten = (word2 & 0x1E00)>>9;
@@ -1089,6 +1092,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
 
     case 0122:
+    break;  
       SerialPrint(("Vertical Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Down "));  
@@ -1130,11 +1134,12 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
      
     case 0251:
       SerialPrint(("Distance to go (nm) "));  
-      angle = distance_bnr_calc(b4, b3, b2, 0, 2048); 
+      DistanceToGo = distance_bnr_calc(b4, b3, b2, 0, 2048); 
       SerialPrintln((angle));
     break;
     
     case 0252:
+	    break;  
       SerialPrint(("Time to go (minutes)"));  
       angle = distance_bnr_calc(b4, b3, b2, 6, 256); 
       SerialPrintln((angle));
@@ -1237,6 +1242,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
 
     case 0312:
+	    break;  
       SerialPrint(("Ground Speed "));  
       angle = distance_bnr_calc(b4, b3, b2, 0, 2048); 
       SerialPrintln((angle));
@@ -1249,30 +1255,35 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0314:
+	    break;  
       SerialPrint(("True Heading "));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 90); 
       SerialPrintln((angle));
     break;
 
     case 0315: 
+	    break;  
       SerialPrint(("Wind Speed "));  
       angle = distance_bnr_calc(b4, b3, b2, 7, 128); 
       SerialPrintln((angle));
     break;
     
     case 0316:
-      SerialPrint(("Wind Angle "));  
+ 	    break;  
+     SerialPrint(("Wind Angle "));  
       angle = angle_bnr_calc(b4, b3, b2, 3, 90); 
       SerialPrintln((angle));
     break;
 
     case 0320:
+	    break;  
       SerialPrint(("Mag Heading "));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 90); 
       SerialPrintln((angle));
     break;
 
     case 0321:
+	    break;  
       SerialPrint(("Drift Angle "));  
       angle = angle_bnr_calc(b4, b3, b2, 3, 90); 
       SerialPrintln((angle));
@@ -1305,10 +1316,9 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     
     case 0327:
       Serial.print(("Vertical Scale Factor (feet)"));  
-      angle = angle_bnr_calc(b4, b3, b2, 0, 1024); 
-      VertScaleFactor = angle;
+      VertScaleFactor = angle_bnr_calc(b4, b3, b2, 0, 1024); 
       
-      Serial.println((angle));
+      Serial.println((VertScaleFactor));
     break;
     
     case 0351:
@@ -1326,6 +1336,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
     
     case 0371:
+		break;
       SerialPrint(("EQUIPMENT IDENT CODE "));
 
       tho = (word2 & 0x07E0)>>5;      
@@ -1340,6 +1351,8 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     
     case 0377:
     default:
+		break;
+	/*
       if (b4 < 16)
         SerialPrint(("0"));
       SerialPrint((b4, HEX));
@@ -1356,6 +1369,8 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       
       SerialPrint((" "));
       SerialPrintln((b1, OCT));
+    */
+    
     }
     
     
@@ -1653,11 +1668,6 @@ void process_efis_data()
   // limit read to whats there or what our buffer can handle.  No blocking please!
   instrm[stream_pos++] = inbyte = Serial2.read();
   
-  if (stream_pos > 127) {
-    SerialPrint(("in stream too long - no 0x0A detected"));
-    stream_pos = 0;
-  }
-  
   //SerialPrint((inbyte);
   if (inbyte == 0x0A) {
 
@@ -1666,20 +1676,19 @@ void process_efis_data()
       
       // DEBUG: Serial.write((byte *)instrm, stream_pos);
       
-      //if (EFISCount == 0) {
-        //SerialPrint(stream_pos);
-        //SerialPrint(" ");
-      
         convert_efis_to_fadc();
      
-      //  EFISCount = 7;
-      //} else
-      //  EFISCount--;
     }
 
+	// If we found a LF reset the buffer to capture the next one.
     stream_pos = 0;
-
   }  
+
+  //if (stream_pos > 127) {
+  //  SerialPrint(("in stream too long - no 0x0A detected"));
+  //  stream_pos = 0;
+  //}
+  
   
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
