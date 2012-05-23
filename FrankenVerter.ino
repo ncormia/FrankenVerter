@@ -309,7 +309,6 @@ int		NumWaypoints = 0;
 int		FromWPT = 0;
 int		ToWPT = 0;
 
-int		GS_Timeout = 0;
 float	VerticalDeviation = 0;
 int		VerticalDev_UD;
 float	CrossTrackDist;
@@ -732,7 +731,7 @@ byte flags = 0;
 //	- - - - - - - - - - - - - - - - - - - - - - - - -
 //	PGRMH - Garmin Proprietary VNAV Sentence
 //
-void outputPGRMH(int valid)
+void outputPGRMH(void)
 {
 char buf[128];
 byte flags = 0;
@@ -744,7 +743,7 @@ float dist;
 	strcpy(buf, "$PGRMH,");
 	
 	// Valid Sentence
-	if (valid) {
+	if (VertScaleFactor > 0) {
 		// A for valid, VSI Missing - Don't have it in ARINC spec
 		strcat(buf, "A,,");
 	
@@ -769,16 +768,14 @@ float dist;
 		// DTK (true)
 		appendFloat(buf, DesiredTrack, 1);
 		strcat(buf, ",");
-	}
-	else {
-		strcat(buf, "V,,,,,,,");
+
+	    // Calculate and attach a HEX checksum and line termination
+		appendNMEAchecksum(buf);
+		
+	    Serial3.write((byte *)buf, strlen(buf));
+		Serial.println(buf);
 	}
 		
-    // Calculate and attach a HEX checksum and line termination
-	appendNMEAchecksum(buf);
-	
-    Serial3.write((byte *)buf, strlen(buf));
-	//Serial.println(buf);
 }
 
 
@@ -1073,10 +1070,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 	  VerticalDev_UD  = b4 & 0x80;
       VerticalDeviation = distance_bnr_calc(b4, b3, b2, 0, 8192);
       
-      // Restart the GS timeout.  If this expires it clears VerticalDeviation and the GS display.
-      GS_Timeout = 20;
-            
-      Serial.println((VerticalDeviation));
+      SerialPrintln((VerticalDeviation));
     break;
     
     case 0121:
@@ -1311,14 +1305,14 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 			digitalWrite(GPS_TERMINAL,LOW);
 		}
       
-      SerialPrintln((angle));
+      Serial.println((angle));
     break;
     
     case 0327:
       Serial.print(("Vertical Scale Factor (feet)"));  
       VertScaleFactor = angle_bnr_calc(b4, b3, b2, 0, 1024); 
       
-      Serial.println((VertScaleFactor));
+      SerialPrintln((VertScaleFactor));
     break;
     
     case 0351:
@@ -1380,21 +1374,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 		// Reset the delay to 10 hz
 		NMEA_delay = millis() + NMEA_DELAY_MS;
 			
-		// Send the Vertical Nav only if valid
-		if (GS_Timeout-- > 0) {
-			
-			// Send the NMEA VNAV message
-			outputPGRMH(1);
-		} else {
-		
-			// Reset GS vars
-			VerticalDeviation = 0;
-			GS_Timeout = 0;
-			
-			// Don't display stale GS data
-			// outputPGRMH(0);
-			
-		}
+		outputPGRMH();
 		
 		// Send the minimum required NMEA every time
 		outputRMC();
@@ -1804,7 +1784,7 @@ void loop()
 		   	VertScaleFactor   = 100;
 		   	LatScaleFactor	  = 100;
 
-			outputPGRMH(CrossTrack_RL);
+			outputPGRMH();
 			outputRMC();
 			outputRMB();
 			outputBOD();
