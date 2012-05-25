@@ -736,17 +736,18 @@ void outputPGRMH(void)
 char buf[128];
 byte flags = 0;
 float dist;
-
+	
 	buf[0] = 0;
-	
-	// NMEA Label for RMC
-	strcpy(buf, "$PGRMH,");
-	
+
 	// Valid Sentence
-	if (VertScaleFactor > 0) {
+	if (VertScaleFactor > 0.1) {
+		
+		// NMEA Label for RMC
+		strcpy(buf, "$PGRMH,");
+		
 		// A for valid, VSI Missing - Don't have it in ARINC spec
 		strcat(buf, "A,,");
-	
+		
 		// Calculate how far off center (VSF is full deflection distance)
 		dist = VerticalDeviation / VertScaleFactor * 999;
 		
@@ -755,27 +756,31 @@ float dist;
 		
 		// Encode up.down into numbers
 		if (VerticalDev_UD) {
-			dist *= -1;
+		dist *= -1;
 		}
 		
 		// Deviation above(+) or below (-) G/S
 		appendFloat(buf, dist, 1);
 		strcat(buf, ",");
-			
+		
 		// FPM to Target and Waypoint Missing!!! No HAT either.  Don't have it in ARINC???
 		strcat(buf, ",,2000,");
-	
+		
 		// DTK (true)
 		appendFloat(buf, DesiredTrack, 1);
 		strcat(buf, ",");
-
-	    // Calculate and attach a HEX checksum and line termination
+		
+		// Calculate and attach a HEX checksum and line termination
 		appendNMEAchecksum(buf);
+	} else {
+		buf[0] = 0;
 		
-	    Serial3.write((byte *)buf, strlen(buf));
-		Serial.println(buf);
+		// Write a bogus sentence to get the Dynon HSI to release GS
+		strcpy(buf, "$PGRMH,,,,,,,,");
+		appendNMEAchecksum(buf);
 	}
-		
+
+	Serial3.write((byte *)buf, strlen(buf));
 }
 
 
@@ -925,17 +930,16 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     word3 = word2 + b2<<16;
     
     // Don't re-parse the same ARINC sentence if it has not changed - just exit
-   //if ((label_table[b1] == word2) && (b2_table[b1] == b2) && (b1 != 0305) && (b1 != 0117))
-   //   return;
-   // else {
+   if ((label_table[b1] == word2) && (b2_table[b1] == b2) && (b1 != 0305))
+      return;
+
+    // store the new data by label number
         label_table[b1] = word2;
         b2_table[b1]	= b2;
-	//}
 
     switch (b1) {
-   
+   /*
     case 01:  
-    	break;  
       SerialPrint(("Distance "));
 
       tho = (word2 & 0xE000)>>13;
@@ -950,7 +954,6 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;  
     
     case 02:  
-     break;  
      SerialPrint(("Time To Go "));
 
       hun = (word2 & 0xE000)>>13;
@@ -962,7 +965,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
      
       SerialPrintln((dist));
     break;  
-    
+    */
     case 012:
       SerialPrint(("Ground Speed (kts) "));
 
@@ -1070,11 +1073,10 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
 	  VerticalDev_UD  = b4 & 0x80;
       VerticalDeviation = distance_bnr_calc(b4, b3, b2, 0, 8192);
       
-      SerialPrintln((VerticalDeviation));
+      Serial.println((VerticalDeviation));
     break;
-    
-    case 0121:
-      break;	// Disable - it spits out way too much data...
+  /*  
+    case 0121:		// Disable - it spits out way too much data...
       SerialPrint(("Horizontal Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Left "));  
@@ -1086,7 +1088,6 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
     break;
 
     case 0122:
-    break;  
       SerialPrint(("Vertical Command (deg) "));  
       if (b4 & 0x80)
         SerialPrint(("Fly Down "));  
@@ -1097,7 +1098,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       angle = distance_bnr_calc(b4, b3, b2, 3, 90); 
       SerialPrintln((angle));
     break;
-
+*/
     case 0125: /* GREENWICH MEAN TIME */ 
     
     	// Parse out the time and make it ASCII HH:MM:SS
@@ -1131,14 +1132,13 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       DistanceToGo = distance_bnr_calc(b4, b3, b2, 0, 2048); 
       SerialPrintln((angle));
     break;
-    
+  /*  
     case 0252:
-	    break;  
       SerialPrint(("Time to go (minutes)"));  
       angle = distance_bnr_calc(b4, b3, b2, 6, 256); 
       SerialPrintln((angle));
     break;
-    
+    */
     case 0260:
       SerialPrint(("Date: "));
 
@@ -1152,7 +1152,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       DateBuf[5] = ((b3 & 0x01) + ((b2 & 0xE0) >> 5)) + 0x30;
       DateBuf[6] = 0;
 	break;
-
+/*
 	case 0261:
       SerialPrint(("GPS Discrete Word 1 "));
 
@@ -1166,10 +1166,10 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       	case 5:	SerialPrintln(("LPV ")); break;
       }
     break;  
-
-    case 0275: /* LRN STATUS WORD */ break;
+*/
+  //  case 0275: /* LRN STATUS WORD */ break;
       
-    case 0300: /* DECLINATION???? TODO */ break;     
+  //  case 0300: /* DECLINATION???? TODO */ break;     
     
     case 0303: /* MESSAGE */ 
       //SerialPrint(("Station Type: ");
@@ -1234,57 +1234,51 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       //else
       //  SerialPrint(("East ");  
     break;
-
+/*
     case 0312:
-	    break;  
       SerialPrint(("Ground Speed "));  
       angle = distance_bnr_calc(b4, b3, b2, 0, 2048); 
       SerialPrintln((angle));
     break;
-    
+  */  
     case 0313:
       SerialPrint(("Track Angle "));  
       TrackAngle = angle_bnr_calc(b4, b3, b2, 3, 90); 
       SerialPrintln((TrackAngle));
     break;
-    
+  /*  
     case 0314:
-	    break;  
       SerialPrint(("True Heading "));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 90); 
       SerialPrintln((angle));
     break;
 
     case 0315: 
-	    break;  
       SerialPrint(("Wind Speed "));  
       angle = distance_bnr_calc(b4, b3, b2, 7, 128); 
       SerialPrintln((angle));
     break;
     
     case 0316:
- 	    break;  
      SerialPrint(("Wind Angle "));  
       angle = angle_bnr_calc(b4, b3, b2, 3, 90); 
       SerialPrintln((angle));
     break;
 
     case 0320:
-	    break;  
       SerialPrint(("Mag Heading "));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 90); 
       SerialPrintln((angle));
     break;
 
     case 0321:
-	    break;  
       SerialPrint(("Drift Angle "));  
       angle = angle_bnr_calc(b4, b3, b2, 3, 90); 
       SerialPrintln((angle));
     break;
-    
+    */
     case 0326:
-      SerialPrint(("Lateral Scale Factor (NM)"));  
+      Serial.print(("Lateral Scale Factor (NM)"));  
       angle = angle_bnr_calc(b4, b3, b2, 0, 64);
       LatScaleFactor = angle;
       
@@ -1312,7 +1306,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       Serial.print(("Vertical Scale Factor (feet)"));  
       VertScaleFactor = angle_bnr_calc(b4, b3, b2, 0, 1024); 
       
-      SerialPrintln((VertScaleFactor));
+      Serial.println((VertScaleFactor));
     break;
     
     case 0351:
@@ -1328,9 +1322,8 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       ETDest = distance_bnr_calc(b4, b3, b2, 3, 2048); 
       SerialPrintln((ETDest));
     break;
-    
+    /*
     case 0371:
-		break;
       SerialPrint(("EQUIPMENT IDENT CODE "));
 
       tho = (word2 & 0x07E0)>>5;      
@@ -1343,7 +1336,7 @@ void parse_ARINC(unsigned short int b1,unsigned short int b2,unsigned short int 
       }
     break;  
     
-    case 0377:
+    */
     default:
 		break;
 	/*
@@ -1638,7 +1631,6 @@ void convert_efis_to_fadc()
 
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
-int  EFISCount = 0;
 
 void process_efis_data()
 {
@@ -1650,24 +1642,20 @@ void process_efis_data()
   
   //SerialPrint((inbyte);
   if (inbyte == 0x0A) {
-
-	// Look for the correct line length in lieu of a CRC - seems to weed out the cruft
-    if (stream_pos == 53) {
+      // Serial.print("EFIS data length: ");  Serial.println(stream_pos);
       
-      // DEBUG: Serial.write((byte *)instrm, stream_pos);
-      
+      // Look for the correct line length in lieu of a CRC - seems to weed out the cruft
+      if (stream_pos == 53)
         convert_efis_to_fadc();
-     
-    }
 
 	// If we found a LF reset the buffer to capture the next one.
     stream_pos = 0;
-  }  
-
-  //if (stream_pos > 127) {
-  //  SerialPrint(("in stream too long - no 0x0A detected"));
-  //  stream_pos = 0;
-  //}
+  }
+  
+  if (stream_pos > 100) {
+    // Serial.println(("in stream too long - no 0x0A detected"));
+    stream_pos = 0;
+  }
   
   
 }
@@ -1768,8 +1756,8 @@ void loop()
   // TEST Output
   
     
-	if (Test_Output && (NMEA_delay < millis()))
-	{
+	//if (Test_Output && (NMEA_delay < millis()))
+	if (0) {
 			// Reset the delay to 10 hz
 			NMEA_delay = millis() + Test_Rate;
 
@@ -1803,13 +1791,14 @@ void loop()
 			//outputSL30Misc();
     }
 
-	// Someday we should really play with ARINC 429 output as well.
-	//
+/* Someday we should really play with ARINC 429 output as well.
+
     txReady = digitalRead(a429TXR_pin);
     if (txReady==HIGH)         // the transmitter is not busy now so we can send
     {
         // txARINC();  // a canned test word
     }
+*/
     rxARINC();
   }
 }
